@@ -1,0 +1,23 @@
+# ── Enhancer — web app (`streamlit run app.py`) ───────────────────────────
+# Installs the core plus everything the ANPR / face / full-frame app needs.
+#   pip install -r requirements-app.txt
+# then fix OpenCV (easyocr/ultralytics/paddle pull a broken v5):
+#   pip uninstall -y opencv-python opencv-python-headless
+#   pip install "opencv-python==4.10.0.84"
+# (setup.ps1 does all of this for you.)
+
+-r requirements.txt
+
+streamlit>=1.33
+ultralytics>=8.1           # YOLO vehicle detection + YOLOv11 plate detection
+huggingface-hub>=0.20      # auto-downloads the plate-detection model
+paddlepaddle>=3.0          # PaddleOCR runtime (default OCR engine)
+paddleocr>=3.0             #   note: MKLDNN disabled in code (AMD-CPU oneDNN crash)
+easyocr>=1.7               # alternative OCR engine
+gfpgan>=1.3.8              # face restoration (+ facexlib: detection & recognition)
+
+# Optional — highest-quality diffusion upscaler (--sr-model diffusion-x4)
+# diffusers>=0.27
+# transformers>=4.38
+# accelerate>=0.27
+# safetensors>=0.4

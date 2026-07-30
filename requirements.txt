@@ -1,0 +1,16 @@
+# ── Enhancer — core (CLI: `python -m enhancer ...`) ────────────────────────
+# Python 3.10 or 3.11 (64-bit). The CPU build of PyTorch is fine.
+# For an NVIDIA GPU, install torch from the CUDA index instead:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+#
+# For the WEB APP (plates / faces / full-frame) install requirements-app.txt,
+# or just run setup.ps1 which installs everything and fixes OpenCV.
+
+torch>=2.1
+torchvision>=0.16
+numpy>=1.24
+pillow>=9                  # imported directly by the super-res stage (also a torch dep)
+opencv-python>=4.8,<5      # OpenCV 5 pre-releases drop cv2.CascadeClassifier
+imageio>=2.31
+imageio-ffmpeg>=0.4.9      # bundles a static ffmpeg (no system install needed)
+tqdm>=4.65

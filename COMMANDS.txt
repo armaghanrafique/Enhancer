@@ -1,0 +1,152 @@
+================================================================================
+ ENHANCER — BEST-QUALITY COMMAND SHEET
+ Project: C:\Users\Armaghan Rafique\Documents\Enhancer
+
+ Goal: MAXIMUM quality / detection. Time and memory are NOT a concern here —
+ these commands use the heaviest models and highest upscales on purpose.
+ (For fast/CPU-friendly runs, use smaller --outscale and realesr-general-x4v3.)
+================================================================================
+
+
+================================================================================
+ 0. ONE-TIME SETUP  (install everything)
+================================================================================
+    cd "C:\Users\Armaghan Rafique\Documents\Enhancer"
+    .\venv\Scripts\Activate.ps1
+    python -m pip install -r requirements.txt
+
+    # OCR + face + transformer + diffusion models
+    python -m pip install easyocr gfpgan spandrel diffusers transformers accelerate safetensors
+
+    # IMPORTANT: easyocr pulls a broken OpenCV 5 — pin it back to 4.x:
+    python -m pip uninstall -y opencv-python opencv-python-headless
+    python -m pip install "opencv-python-headless==4.10.0.84"
+
+    # verify OpenCV is healthy (must print: cv2 4.10.0  Cascade: True)
+    python -c "import cv2; print('cv2', cv2.__version__, ' Cascade:', hasattr(cv2,'CascadeClassifier'))"
+
+
+================================================================================
+ 0.5  WEB APP — ANPR PLATE READER  (local browser UI)
+================================================================================
+  Install (once):
+    python -m pip install streamlit ultralytics easyocr
+    python -m pip uninstall -y opencv-python opencv-python-headless
+    python -m pip install "opencv-python==4.10.0.84"
+
+  Launch:
+    streamlit run app.py
+    -> opens http://localhost:8501 in your browser
+
+  In the browser: upload an image or video. For every frame it
+    detects the car -> finds the plate inside it -> enhances ONLY the plate ->
+    reads it (Pakistan-plate OCR) -> overlays car + plate boxes -> streams each
+    prediction into the sidebar, showing original vs enhanced vs predicted text.
+  Download all reads as JSON from the button at the bottom.
+
+
+================================================================================
+ 1. BEST OVERALL IMAGE ENHANCEMENT  (command-line)
+================================================================================
+
+# Highest quality (diffusion upscaler) — slowest, best detail reconstruction
+    python -m enhancer -i input.png -o out\input_best.png --stages lowlight denoise superres --sr-model diffusion-x4 --steps 60 --tile 128
+
+# Best non-diffusion (Real-ESRGAN x4plus, max detail, whole image)
+    python -m enhancer -i input.png -o out\input_x4.png --stages lowlight denoise superres --sr-model realesrgan-x4plus --outscale 4 --tile 0
+
+# SOTA transformer (needs a HAT/DRCT .pth in models\ + pip install spandrel)
+    python -m enhancer -i input.png -o out\input_hat.png --stages lowlight denoise superres --sr-model spandrel --sr-weights models\HAT_SRx4.pth --tile 128
+
+
+================================================================================
+ 2. BEST OVERALL VIDEO ENHANCEMENT  (frame by frame)
+================================================================================
+
+# Max detail — Real-ESRGAN x4plus, 4x, small tiles for quality (very slow)
+    python -m enhancer -i input.mp4 -o out\input_best.mp4 --stages lowlight denoise superres --sr-model realesrgan-x4plus --outscale 4 --tile 256 --smooth 0.2
+
+# Balanced-best — x4plus at 2x (still excellent, much faster than 4x)
+    python -m enhancer -i input.mp4 -o out\input_2x.mp4 --stages lowlight denoise superres --sr-model realesrgan-x4plus --outscale 2 --tile 256 --smooth 0.2
+
+
+================================================================================
+ 3. BEST NUMBER-PLATE DETECTION + OCR  (SCAN MODE, maximum settings)
+    Pre-cleans (lowlight+denoise), super-resolves the WHOLE frame 4x, then
+    OCR-scans it. This is the strongest path for small / far / dim plates.
+================================================================================
+
+--------------------------------------------------------------------------------
+ 3A. IMAGE — best plate reading
+--------------------------------------------------------------------------------
+    python -m enhancer -i car.png -o out\car_plates.png --stages lowlight denoise plate --plate-mode scan --plate-sr-model realesrgan-x4plus --scan-outscale 4 --ocr --draw --min-plate-len 5 --save-crops out\crops
+
+--------------------------------------------------------------------------------
+ 3B. VIDEO — best plate reading (slow; every frame upscaled 4x + OCR)
+--------------------------------------------------------------------------------
+    python -m enhancer -i traffic.mp4 -o out\traffic_plates.mp4 --stages lowlight denoise plate --plate-mode scan --plate-sr-model realesrgan-x4plus --scan-outscale 4 --ocr --draw --min-plate-len 5 --smooth 0.2
+
+--------------------------------------------------------------------------------
+ 3C. If plates are EXTREME far / tiny — push scan-outscale to 6-8
+--------------------------------------------------------------------------------
+    python -m enhancer -i car.png -o out\car_plates.png --stages lowlight denoise plate --plate-mode scan --plate-sr-model realesrgan-x4plus --scan-outscale 6 --ocr --draw --min-plate-len 5 --save-crops out\crops
+
+  OUTPUT of every plate command:
+    - enhanced image/video with green boxes + recognised text drawn on it
+    - <output>.plates.json      = every read (frame, box, text, confidence)
+    - out\crops\                = each enhanced plate crop (from --save-crops)
+
+
+================================================================================
+ 4. BEST FACE ENHANCEMENT  (needs: pip install gfpgan)
+================================================================================
+# IMAGE
+    python -m enhancer -i portrait.png -o out\portrait_best.png --stages lowlight denoise superres face --sr-model realesrgan-x4plus --outscale 4 --tile 0
+# VIDEO
+    python -m enhancer -i people.mp4 -o out\people_best.mp4 --stages lowlight denoise superres face --sr-model realesrgan-x4plus --outscale 2 --tile 256 --smooth 0.2
+
+
+================================================================================
+ 5. EVERYTHING, MAXED  (enhance whole frame + faces + plates + OCR)
+================================================================================
+# IMAGE
+    python -m enhancer -i scene.png -o out\scene_max.png --stages lowlight denoise superres face plate --sr-model realesrgan-x4plus --outscale 4 --tile 0 --ocr --draw --plate-mode crop --crop-outscale 4
+# VIDEO
+    python -m enhancer -i scene.mp4 -o out\scene_max.mp4 --stages lowlight denoise superres face plate --sr-model realesrgan-x4plus --outscale 2 --tile 256 --ocr --draw --plate-mode crop --crop-outscale 4 --smooth 0.2
+
+
+================================================================================
+ 6. QUALITY KNOBS  (turn these UP for better results, DOWN for speed)
+================================================================================
+  --sr-model          realesrgan-x4plus (max detail) | diffusion-x4 (best, slow)
+                      | realesr-general-x4v3 (fast) | spandrel (HAT/DRCT/SwinIR)
+  --outscale          4 = best (whole frame). 2 = faster.
+  --scan-outscale     plate scan zoom: 4 default; 6-8 for tiny/far plates
+  --plate-sr-model    realesrgan-x4plus for the sharpest plate crops
+  --plate-mode        scan = best for far plates | crop = for close-up plates
+  --min-plate-len     5 filters out short noise / clock digits
+  --steps             diffusion only: 60+ for best quality (very slow)
+  --tile              0 = no seams (best) if it fits memory; else 256 / 128
+  --smooth            0.2 video flicker reduction
+  --no-deep           OFF (never use for best quality)
+
+
+================================================================================
+ 7. WHAT CANNOT BE FIXED (physics, not settings)
+================================================================================
+  A plate must be READABLE in the source pixels. No model can recover:
+    - blown-out / overexposed plates (clipped to white)
+    - near-black plates with no detail
+    - heavy motion blur that erased the characters
+  If you can't read it by eye after zooming, OCR won't either.
+  For those, capture a better frame (different frame of the video often helps).
+
+
+================================================================================
+ NOTES
+  - Weights auto-download to .\models\ on first use (Real-ESRGAN, GFPGAN).
+    diffusion-x4 caches to the HuggingFace folder (~3.5 GB).
+    HAT/DRCT/SwinIR (.pth) and YOLO (.pt) you supply yourself.
+  - Quote filenames with spaces:  "Shami Gate Outside.mp4"
+  - Outputs + <output>.plates.json land in .\out\ .
+================================================================================
